@@ -1,0 +1,55 @@
+name: generate pacman game
+
+on:
+  schedule: # Run automatically every 24 hours
+    - cron: "0 0 * * *"
+  workflow_dispatch: # Allows manual triggering
+  push: # Runs on every push to the main branch
+    branches:
+      - main
+
+jobs:
+  generate:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: generate pacman-contribution-graph.svg
+        uses: abozanona/pacman-contribution-graph@main
+        with:
+          github_user_name: ${{ github.repository_owner }}
+
+      - name: Show generated files
+        run: |
+          echo "Listing dist contents"
+          ls -la dist || true
+
+      - name: Verify generated SVG exists
+        run: |
+          if [ ! -f dist/pacman-contribution-graph.svg ]; then
+            echo "dist/pacman-contribution-graph.svg not found" >&2
+            ls -la dist || true
+            exit 1
+          fi
+
+      - name: Upload generated dist as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pacman-dist
+          path: dist
+
+      # Publish generated SVG files to the output branch
+      - name: Deploy to output branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: output
+          publish_dir: ./dist
+          keep_files: true
